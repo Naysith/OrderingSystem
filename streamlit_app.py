@@ -16,6 +16,8 @@ if 'page' not in st.session_state:
     st.session_state.page = "menu"
 if 'order' not in st.session_state:
     st.session_state.order = {}
+if 'order_number' not in st.session_state:
+    st.session_state.order_number = None
 
 # --- Menu Items ---
 menu_items = {
@@ -80,7 +82,7 @@ if st.session_state.page == "menu":
                 st.session_state.order[item] = st.session_state.order.get(item, 0) + 1
                 st.success(f"{item} has been added to your order!")
 
-    # Display Cart
+    # Sidebar: Display Cart
     st.sidebar.header("Your Order")
     total_price = 0
     if st.session_state.order:
@@ -89,12 +91,17 @@ if st.session_state.page == "menu":
                 if ordered_item in items:
                     price = items[ordered_item]["price"]
                     total_price += price * quantity
-                    st.sidebar.write(f"{ordered_item} {quantity}x - Rp.{price * quantity:.3f}")
-        
+
+                    # Display item with remove button
+                    col1, col2 = st.sidebar.columns([3, 1])
+                    col1.write(f"{ordered_item} {quantity}x")
+                    if col2.button("Remove", key=f"remove_{ordered_item}"):
+                        del st.session_state.order[ordered_item]
+
+        # Total Price and Review Button
         st.sidebar.subheader(f"Total: Rp.{total_price:.3f}")
         if st.sidebar.button("Review Order"):
             st.session_state.page = "review"
-            st.experimental_rerun()
     else:
         st.sidebar.write("Your cart is empty.")
 
@@ -122,34 +129,24 @@ elif st.session_state.page == "review":
         # Back Button
         if st.button("Back to Menu"):
             st.session_state.page = "menu"
-            st.experimental_rerun()
 
         # Pay Button
         if st.button("Pay"):
             order_number = random.randint(1000, 9999)
-            st.success(f"Your order has been finalized! Your order number is #{order_number}. Thank you!")
-
-            # Save Order to Excel
-            order_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            order_data = []
-            for item, quantity, price, total in order_summary:
-                order_data.append({
-                    "Item": item,
-                    "Quantity": quantity,
-                    "Time": order_time,
-                    "Price": price,
-                    "Total": total,
-                    "Order Number": order_number
-                })
-
-            # Append or create Excel
-            if os.path.exists(excel_file_path):
-                with pd.ExcelWriter(excel_file_path, mode="a", engine="openpyxl", if_sheet_exists="overlay") as writer:
-                    pd.DataFrame(order_data).to_excel(writer, sheet_name="Orders", index=False, header=False, startrow=writer.sheets['Orders'].max_row)
-            else:
-                pd.DataFrame(order_data).to_excel(excel_file_path, sheet_name="Orders", index=False)
-            
-            # Clear Cart
-            st.session_state.order = {}
+            st.session_state.order_number = order_number
+            st.session_state.page = "confirmation"
     else:
         st.error("Your cart is empty.")
+
+elif st.session_state.page == "confirmation":
+    # Page 3: Confirmation Page
+    st.title("Order Confirmation")
+    if st.session_state.order_number:
+        st.write("Thank you for your order!")
+        st.markdown(f"<h1 style='text-align: center; font-size: 100px;'>Order #{st.session_state.order_number}</h1>", unsafe_allow_html=True)
+        st.write("Please show this number at the counter.")
+
+        if st.button("Done"):
+            st.session_state.page = "menu"
+            st.session_state.order = {}
+            st.session_state.order_number = None
