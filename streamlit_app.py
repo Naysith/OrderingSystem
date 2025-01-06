@@ -2,22 +2,22 @@ import streamlit as st
 import os
 import pandas as pd
 from datetime import datetime
+import random
 
-# --- Title ---
-st.title("Selamat Datang di DELIS BURGER")
+# --- Page Configuration ---
+st.set_page_config(page_title="Delis Burger", layout="wide")
 
 # --- Define Image and Excel Directories ---
 img_folder = os.path.join(os.getcwd(), "Img")  # Folder for images
 excel_file_path = os.path.join(os.getcwd(), "Order.xlsx")  # Excel file for orders
 
-# --- Banner Image ---
-banner_path = os.path.join(img_folder, "Banner.jpg")
-if os.path.exists(banner_path):
-    st.image(banner_path, use_container_width=True)
-else:
-    st.error("Banner image not found!")
+# --- Initialize Session State ---
+if 'page' not in st.session_state:
+    st.session_state.page = "menu"
+if 'order' not in st.session_state:
+    st.session_state.order = {}
 
-# --- Menu Items and Prices ---
+# --- Menu Items ---
 menu_items = {
     "Burgers": {
         "Classic Burger": {"image": "Burger.png", "price": 12.000},
@@ -42,102 +42,114 @@ menu_items = {
     }
 }
 
-# --- Initialize Order State ---
-if 'order' not in st.session_state:
-    st.session_state.order = {}
+# --- Page Navigation ---
+if st.session_state.page == "menu":
+    # Page 1: Menu Page
+    st.title("Selamat Datang di DELIS BURGER")
 
-# --- Sidebar Navigation ---
-st.sidebar.title("Menu List")
-selected_category = st.sidebar.radio("Select a category:", list(menu_items.keys()))
+    # Banner Image
+    banner_path = os.path.join(img_folder, "Banner.jpg")
+    if os.path.exists(banner_path):
+        st.image(banner_path, use_container_width=True)
+    else:
+        st.error("Banner image not found!")
 
-# --- Display Menu Category ---
-st.title(selected_category)
-for item, item_data in menu_items[selected_category].items():
-    image_file = item_data["image"]
-    price = item_data["price"]
-    
-    # Image path for each menu item
-    image_path = os.path.join(img_folder, image_file)
-    
-    # Layout with columns
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        if os.path.exists(image_path):
-            st.image(image_path, width=100)
-        else:
-            st.error(f"Image for {item} not found!")
-    with col2:
-        st.write(f"**{item}** - Rp.{price:.3f}")
-        if st.button(f"Add {item} to Order", key=f"add_{item}"):
-            st.session_state.order[item] = st.session_state.order.get(item, 0) + 1
-            st.success(f"{item} has been added to your order!")
+    # Sidebar Navigation
+    st.sidebar.title("Menu List")
+    selected_category = st.sidebar.radio("Select a category:", list(menu_items.keys()))
 
-# --- Display Cart in Sidebar ---
-st.sidebar.header("Your Order")
-total_price = 0  # Initialize total price
-items_to_remove = []  # Temporary list to store items for removal
+    # Display Menu Items
+    st.title(selected_category)
+    for item, item_data in menu_items[selected_category].items():
+        image_file = item_data["image"]
+        price = item_data["price"]
 
-if st.session_state.order:
-    for ordered_item, quantity in st.session_state.order.items():
-        # Get item details (price)
-        for category, items in menu_items.items():
-            if ordered_item in items:
-                price = items[ordered_item]["price"]
-                item_total = price * quantity  # Calculate total price for this item
-                total_price += item_total  # Add to the overall total
+        # Image path for each menu item
+        image_path = os.path.join(img_folder, image_file)
 
-                # Display item name, quantity, and price in the sidebar
-                col1, col2 = st.sidebar.columns([2, 1])
-                col1.write(f"{ordered_item} {quantity}x")
-                col2.write(f"Rp.{item_total:.3f}")
+        # Layout with columns
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if os.path.exists(image_path):
+                st.image(image_path, width=100)
+            else:
+                st.error(f"Image for {item} not found!")
+        with col2:
+            st.write(f"**{item}** - Rp.{price:.3f}")
+            if st.button(f"Add {item} to Order", key=f"add_{item}"):
+                st.session_state.order[item] = st.session_state.order.get(item, 0) + 1
+                st.success(f"{item} has been added to your order!")
 
-                # Button to remove an item (mark for removal)
-                if col2.button("Remove", key=f"remove_{ordered_item}"):
-                    items_to_remove.append(ordered_item)
-
-    # Remove items after iterating
-    for item in items_to_remove:
-        del st.session_state.order[item]
-
-    # Display total price above the "Order Now" button
-    st.sidebar.subheader(f"Total: Rp.{total_price:.3f}")
-
-    # Order button
-    if st.sidebar.button("Place Order"):
-        # Add order to Excel file
-        order_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Display Cart
+    st.sidebar.header("Your Order")
+    total_price = 0
+    if st.session_state.order:
+        for ordered_item, quantity in st.session_state.order.items():
+            for category, items in menu_items.items():
+                if ordered_item in items:
+                    price = items[ordered_item]["price"]
+                    total_price += price * quantity
+                    st.sidebar.write(f"{ordered_item} {quantity}x - Rp.{price * quantity:.3f}")
         
-        # Prepare order data
-        order_data = []
+        st.sidebar.subheader(f"Total: Rp.{total_price:.3f}")
+        if st.sidebar.button("Review Order"):
+            st.session_state.page = "review"
+            st.experimental_rerun()
+    else:
+        st.sidebar.write("Your cart is empty.")
+
+elif st.session_state.page == "review":
+    # Page 2: Order Review Page
+    st.title("Review Your Order")
+
+    # Display Order Details
+    if st.session_state.order:
+        order_summary = []
+        total_price = 0
         for item, quantity in st.session_state.order.items():
             for category, items in menu_items.items():
                 if item in items:
                     price = items[item]["price"]
-                    order_data.append({
-                        "Item": item,
-                        "Quantity": quantity,
-                        "Time": order_time,
-                        "Price": price
-                    })
+                    order_summary.append((item, quantity, price, price * quantity))
+                    total_price += price * quantity
                     break
-
-        # Append to existing Excel file or create a new one
-        if os.path.exists(excel_file_path):
-            with pd.ExcelWriter(excel_file_path, mode="a", engine="openpyxl", if_sheet_exists="overlay") as writer:
-                pd.DataFrame(order_data).to_excel(writer, sheet_name="Orders", index=False, header=False, startrow=writer.sheets['Orders'].max_row)
-        else:
-            pd.DataFrame(order_data).to_excel(excel_file_path, sheet_name="Orders", index=False)
-
-        # Clear the cart
-        st.session_state.order = {}
         
-        # Show success message in the sidebar
-        st.sidebar.success("Your order has been placed! Thank you!")
-        st.sidebar.info("Refresh the page to start a new order!")
+        # Create DataFrame for Order Summary
+        df = pd.DataFrame(order_summary, columns=["Item", "Quantity", "Price", "Total Price"])
+        st.table(df)
+        st.write(f"**Total Price: Rp.{total_price:.3f}**")
 
-else:
-    st.sidebar.write("Your cart is empty. Start adding items!")
+        # Back Button
+        if st.button("Back to Menu"):
+            st.session_state.page = "menu"
+            st.experimental_rerun()
 
-# --- Footer ---
-st.sidebar.write("---")
-st.sidebar.write("Thank you for visiting DELIS BURGER!")
+        # Pay Button
+        if st.button("Pay"):
+            order_number = random.randint(1000, 9999)
+            st.success(f"Your order has been finalized! Your order number is #{order_number}. Thank you!")
+
+            # Save Order to Excel
+            order_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            order_data = []
+            for item, quantity, price, total in order_summary:
+                order_data.append({
+                    "Item": item,
+                    "Quantity": quantity,
+                    "Time": order_time,
+                    "Price": price,
+                    "Total": total,
+                    "Order Number": order_number
+                })
+
+            # Append or create Excel
+            if os.path.exists(excel_file_path):
+                with pd.ExcelWriter(excel_file_path, mode="a", engine="openpyxl", if_sheet_exists="overlay") as writer:
+                    pd.DataFrame(order_data).to_excel(writer, sheet_name="Orders", index=False, header=False, startrow=writer.sheets['Orders'].max_row)
+            else:
+                pd.DataFrame(order_data).to_excel(excel_file_path, sheet_name="Orders", index=False)
+            
+            # Clear Cart
+            st.session_state.order = {}
+    else:
+        st.error("Your cart is empty.")
