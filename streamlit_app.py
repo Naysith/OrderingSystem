@@ -3,6 +3,7 @@ import os
 import pandas as pd
 from datetime import datetime
 import random
+from openpyxl import Workbook
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Delis Burger", layout="wide")
@@ -43,6 +44,31 @@ menu_items = {
         "Chicken Wings": {"image": "Wing.png", "price": 18.000}
     }
 }
+
+# --- Function to Save Order to Excel ---
+def save_order_to_excel(order, order_number, total_price):
+    # Create the order data in a DataFrame
+    order_data = []
+    for item, quantity in order.items():
+        for category, items in menu_items.items():
+            if item in items:
+                price = items[item]["price"]
+                order_data.append([order_number, item, quantity, price, price * quantity])
+
+    df = pd.DataFrame(order_data, columns=["Order Number", "Item", "Quantity", "Price", "Total"])
+    
+    # Check if the Excel file exists
+    if os.path.exists(excel_file_path):
+        # If exists, load the existing data and append
+        existing_df = pd.read_excel(excel_file_path, engine='openpyxl')
+        updated_df = existing_df.append(df, ignore_index=True)
+    else:
+        # If the file doesn't exist, create a new one
+        updated_df = df
+
+    # Save the data to Excel (specify the engine)
+    updated_df.to_excel(excel_file_path, index=False, engine='openpyxl')
+
 
 # --- Page Navigation ---
 if st.session_state.page == "menu":
@@ -134,6 +160,8 @@ elif st.session_state.page == "review":
         if st.button("Pay"):
             order_number = random.randint(1000, 9999)
             st.session_state.order_number = order_number
+            # Save the order to Excel
+            save_order_to_excel(st.session_state.order, order_number, total_price)
             st.session_state.page = "confirmation"
     else:
         st.error("Your cart is empty.")
@@ -150,4 +178,3 @@ elif st.session_state.page == "confirmation":
             st.session_state.page = "menu"
             st.session_state.order = {}
             st.session_state.order_number = None
-
