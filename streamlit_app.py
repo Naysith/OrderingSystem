@@ -57,11 +57,19 @@ def save_order_to_excel(order, order_number, total_price):
 
     df = pd.DataFrame(order_data, columns=["Order Number", "Item", "Quantity", "Price", "Total"])
     
-    # Check if the Excel file exists
+    # Check if the Excel file exists and is valid
     if os.path.exists(excel_file_path):
-        # If exists, load the existing data and append
-        existing_df = pd.read_excel(excel_file_path, engine='openpyxl')
-        updated_df = existing_df.append(df, ignore_index=True)
+        try:
+            # Try reading the existing Excel file
+            existing_df = pd.read_excel(excel_file_path, engine='openpyxl')
+            
+            # Use pd.concat() to combine the dataframes
+            updated_df = pd.concat([existing_df, df], ignore_index=True)
+        except Exception as e:
+            # If an error occurs (like a corrupt file), log the error and create a new file
+            st.error(f"Error reading the existing Excel file: {e}")
+            st.write("Creating a new Excel file instead.")
+            updated_df = df
     else:
         # If the file doesn't exist, create a new one
         updated_df = df
